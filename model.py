@@ -1,17 +1,26 @@
 import pickle
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
-from utils import preprocessor
 
 class SpamDetector:
     def __init__(self):
         self.vectorizer = None
         self.model = None
     
+    def preprocessor(self, e):
+        """Original preprocessor from the shared code"""
+        result = []
+        for k in e:
+            if k.isalpha():  
+                result.append(k.lower()) 
+            else:
+                result.append(' ')  
+        return ''.join(result).strip()
+    
     def train(self, df):
         """Train the spam detection model."""
         # Initialize and train the vectorizer
-        self.vectorizer = CountVectorizer(preprocessor=preprocessor)
+        self.vectorizer = CountVectorizer(preprocessor=self.preprocessor)
         X = self.vectorizer.fit_transform(df['content'])
         
         # Train the model
