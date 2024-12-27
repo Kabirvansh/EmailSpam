@@ -1,57 +1,72 @@
 import streamlit as st
-import pandas as pd
-import pickle
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.linear_model import LogisticRegression
-import re
+from model import SpamDetector
 
-def preprocessor(e):
-    result = []
-    for k in e:
-        if k.isalpha():  
-            result.append(k.lower()) 
-        else:
-            result.append(' ')  
-    return ''.join(result).strip()
+def main():
+    st.set_page_config(
+        page_title="Email Spam Detector",
+        page_icon="📧",
+        layout="centered"
+    )
+    
+    st.title("📧 Email Spam Detector")
+    st.write("""
+    ### Check if your email is spam or not!
+    Simply paste your email content below and we'll analyze it for you.
+    """)
+    
+    # Load the pre-trained model
+    try:
+        detector = SpamDetector.load_model('vectorizer.pkl', 'model.pkl')
+    except FileNotFoundError:
+        st.error("""
+        Model files not found! Please ensure you've run the training script first:
+        ```
+        python train.py
+        ```
+        """)
+        return
+    
+    # Text input
+    text_input = st.text_area(
+        "Paste your email content here:",
+        height=200,
+        placeholder="Enter the email content you want to analyze..."
+    )
+    
+    if st.button("Analyze", type="primary"):
+        if not text_input:
+            st.warning("Please enter some text to analyze.")
+            return
+        
+        with st.spinner("Analyzing..."):
+            # Get prediction
+            spam_probability = detector.predict_proba(text_input)
+            spam_score = int(spam_probability * 100)
+            
+            # Create a progress bar
+            st.write("### Spam Score:")
+            progress_color = "red" if spam_score > 50 else "green"
+            st.progress(spam_score / 100)
+            
+            # Display the score
+            st.markdown(f"""
+            <div style='text-align: center; font-size: 24px; font-weight: bold; color: {progress_color};'>
+                {spam_score}/100
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Classification result
+            if spam_score > 50:
+                st.error("🚨 This message is likely SPAM!")
+            else:
+                st.success("✅ This message appears to be legitimate (HAM).")
+            
+            # Confidence explanation
+            st.info(f"""
+            Our model is {abs(50 - spam_score)}% confident in this classification.
+            The closer the score is to 100, the more likely it is spam.
+            The closer to 0, the more likely it is legitimate.
+            """)
 
-class SpamDetector:
-    def __init__(self):
-        self.vectorizer = None
-        self.model = None
-    
-    def train(self, df):
-        # Initialize and train the vectorizer
-        self.vectorizer = CountVectorizer(preprocessor=preprocessor)
-        X = self.vectorizer.fit_transform(df['content'])
-        
-        # Train the model
-        self.model = LogisticRegression(max_iter=1000)
-        self.model.fit(X, df['category'])
-    
-    def predict_proba(self, text):
-        if self.vectorizer is None or self.model is None:
-            raise ValueError("Model not trained yet!")
-        
-        # Transform the text
-        X = self.vectorizer.transform([text])
-        
-        # Get probability scores
-        probabilities = self.model.predict_proba(X)
-        
-        # Return spam probability (second class)
-        return probabilities[0][1]
-    
-    def save_model(self, vectorizer_path, model_path):
-        with open(vectorizer_path, 'wb') as f:
-            pickle.dump(self.vectorizer, f)
-        with open(model_path, 'wb') as f:
-            pickle.dump(self.model, f)
-    
-    @classmethod
-    def load_model(cls, vectorizer_path, model_path):
-        detector = cls()
-        with open(vectorizer_path, 'rb') as f:
-            detector.vectorizer = pickle.load(f)
-        with open(model_path, 'rb') as f:
-            detector.model = pickle.load(f)
-        return detector
+if __name__ == "__main__":
+    main()
