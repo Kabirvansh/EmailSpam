@@ -1,7 +1,7 @@
 import pickle
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
-from .utils import preprocessor
+from utils import preprocessor
 
 class SpamDetector:
     def __init__(self):
